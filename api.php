@@ -65,9 +65,23 @@ function checkAttendance() {
     $conn = getDBConnection();
     
     try {
-        // Verificar si el empleado existe, si no, crearlo
-        $stmt = $conn->prepare("INSERT IGNORE INTO employees (id, name) VALUES (?, ?)");
-        $stmt->execute([$employeeId, $employeeName]);
+        // Verificar si el empleado existe
+        $stmt = $conn->prepare("SELECT id, name FROM employees WHERE id = ?");
+        $stmt->execute([$employeeId]);
+        $employee = $stmt->fetch();
+
+        if (!$employee) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Empleado no encontrado. Contacte al administrador.'
+            ]);
+            return;
+        }
+
+        // Si el empleado existe, usamos el nombre de la BD para consistencia,
+        // o actualizamos si queremos permitir correcciones de nombre (opcional).
+        // Por ahora, usamos el nombre de la BD para mostrar mensajes.
+        $employeeName = $employee['name'];
         
         // Verificar si ya hay un registro para hoy
         $today = date('Y-m-d');

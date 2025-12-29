@@ -1,30 +1,44 @@
 <?php
 // api.php - API principal del sistema
+session_start();
 require_once 'config.php';
 
 setCorsHeaders();
+
+// Verificar autenticación para acciones protegidas
+function requireAuth() {
+    if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+        echo json_encode(['error' => 'No autorizado']);
+        exit;
+    }
+}
 
 // Obtener la acción solicitada
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 switch($action) {
     case 'check_attendance':
+        // Público
         checkAttendance();
         break;
     
     case 'get_stats':
+        requireAuth();
         getStats();
         break;
     
     case 'get_attendance_report':
+        requireAuth();
         getAttendanceReport();
         break;
     
     case 'get_employees':
+        requireAuth();
         getEmployees();
         break;
     
     case 'export_report':
+        requireAuth();
         exportReport();
         break;
     

@@ -344,10 +344,11 @@
         </div>
     </div>
 
+    <script src="js/config.js"></script>
     <script>
-        // URL de la API - Configurado para tu dominio
-        const API_URL = 'https://secretariadeauditoriaoaxaca.rf.gd/api.php';
-        const AUTH_URL = 'https://secretariadeauditoriaoaxaca.rf.gd/auth.php';
+        // URLs de la API desde config.js
+        const API_URL = CONFIG.API_URL;
+        const AUTH_URL = CONFIG.AUTH_URL;
 
         // Variables globales
         let currentReportData = null;

@@ -18,3 +18,4 @@ $router->get('/documents/my_tray', 'DocumentController', 'my_tray');
 $router->get('/documents/turnar', 'DocumentController', 'turnar');
 $router->post('/documents/processTurnar', 'DocumentController', 'processTurnar');
 $router->get('/documents/view', 'DocumentController', 'show');
+$router->post('/documents/addActivity', 'DocumentController', 'addActivity');

@@ -43,11 +43,19 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Prioridad</label>
-                            <select name="priority" class="form-select">
-                                <option value="NORMAL">Normal</option>
-                                <option value="ALTA">Alta</option>
-                                <option value="URGENTE" class="text-danger fw-bold">Urgente</option>
+                            <select name="priority" class="form-select" id="prioritySelect">
+                                <option value="NORMAL">Normal (5 días)</option>
+                                <option value="ALTA">Alta (3 días)</option>
+                                <option value="URGENTE" class="text-danger fw-bold">Urgente (1 día)</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Días para atención (Opcional)</label>
+                            <input type="number" name="days_limit" class="form-control" placeholder="Automático según prioridad">
+                            <div class="form-text">Dejar vacío para usar el valor por defecto de la prioridad.</div>
                         </div>
                     </div>
 

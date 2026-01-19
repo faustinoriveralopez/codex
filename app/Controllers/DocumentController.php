@@ -5,6 +5,7 @@ use Core\Controller;
 use App\Models\Document;
 use App\Models\Area;
 use App\Models\DocumentHistory;
+use App\Helpers\DateHelper;
 
 class DocumentController extends Controller {
     public function __construct() {
@@ -28,6 +29,20 @@ class DocumentController extends Controller {
         $docModel = new Document();
         $folio = $docModel->getNextInternalFolio(date('Y'));
 
+        // Calculate Deadline
+        $priority = $_POST['priority'] ?? 'NORMAL';
+        $daysLimit = 5; // Default Normal
+
+        if ($priority === 'ALTA') $daysLimit = 3;
+        if ($priority === 'URGENTE') $daysLimit = 1;
+
+        // Allow manual override if set
+        if (!empty($_POST['days_limit'])) {
+            $daysLimit = (int)$_POST['days_limit'];
+        }
+
+        $deadlineDate = DateHelper::addBusinessDays(date('Y-m-d'), $daysLimit);
+
         $data = [
             'internal_folio' => $folio,
             'external_folio' => $_POST['external_folio'] ?? '',
@@ -36,11 +51,14 @@ class DocumentController extends Controller {
             'doc_type' => $_POST['doc_type'] ?? 'OFICIO',
             'sender_dependency' => $sender,
             'sender_name' => $_POST['sender_name'] ?? '',
-            'priority' => $_POST['priority'] ?? 'NORMAL',
+            'priority' => $priority,
             'status' => 'RECIBIDO',
             'created_by' => $_SESSION['user_id'],
             'current_area_id' => $_SESSION['area_id'],
-            'current_user_id' => $_SESSION['user_id']
+            'current_user_id' => $_SESSION['user_id'],
+            'days_limit' => $daysLimit,
+            'deadline_date' => $deadlineDate,
+            'alert_level' => 'VERDE'
         ];
 
         $id = $docModel->create($data);
@@ -186,5 +204,53 @@ class DocumentController extends Controller {
             'attachments' => $attachments,
             'history' => $history
         ]);
+    }
+
+    public function addActivity() {
+        $doc_id = $_POST['document_id'];
+        $comment = $_POST['comment'] ?? '';
+
+        if (empty($comment)) {
+            $this->redirect('documents/view?id=' . $doc_id);
+        }
+
+        // Handle Evidence Upload
+        $evidencePath = null;
+        if (isset($_FILES['evidence_file']) && $_FILES['evidence_file']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = 'public/uploads/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+
+            $file = $_FILES['evidence_file'];
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'zip', 'doc', 'docx', 'xls', 'xlsx'];
+
+            if (in_array($ext, $allowedExts)) {
+                $filename = 'EVID_' . time() . '_' . pathinfo($file['name'], PATHINFO_FILENAME) . '.' . $ext;
+                $filepath = $uploadDir . $filename;
+
+                if (move_uploaded_file($file['tmp_name'], $filepath)) {
+                    $evidencePath = $filepath;
+                    $docModel = new Document();
+                    $docModel->query("INSERT INTO attachments (document_id, filename, filepath) VALUES (:doc_id, :fname, :fpath)", [
+                        'doc_id' => $doc_id,
+                        'fname' => '[EVIDENCIA] ' . $file['name'],
+                        'fpath' => $filepath
+                    ]);
+                }
+            }
+        }
+
+        // Add History
+        $histModel = new DocumentHistory();
+        $histModel->create([
+            'document_id' => $doc_id,
+            'user_id' => $_SESSION['user_id'],
+            'action' => 'SEGUIMIENTO',
+            'comment' => $comment . ($evidencePath ? ' (Evidencia adjunta)' : '')
+        ]);
+
+        $this->redirect('documents/view?id=' . $doc_id);
     }
 }

@@ -96,3 +96,9 @@ INSERT INTO users (name, email, password, role_id, area_id, position) VALUES
 ('Diego Fernando Urbieta Villavicencio', 'ppoliciales.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 4, 8, 'Jefe Prestaciones Policiales'),
 ('Lucero Vásquez Ramírez', 'administracion.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 4, 9, 'Jefa UAF Fondos de Pensiones'),
 ('Karina Mireya Sierra Hernández', 'contabilidadyfinanzas.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 4, 10, 'Jefa Contabilidad y Finanzas');
+ALTER TABLE documents ADD COLUMN deadline_date DATE DEFAULT NULL;
+ALTER TABLE documents ADD COLUMN days_limit INT DEFAULT 0;
+ALTER TABLE documents ADD COLUMN alert_level VARCHAR(20) DEFAULT 'VERDE';
+
+-- Update existing documents to have a default deadline (e.g. 5 days from creation)
+UPDATE documents SET days_limit = 5, deadline_date = DATE_ADD(created_at, INTERVAL 5 DAY) WHERE deadline_date IS NULL;

@@ -58,6 +58,26 @@
                 <a href="<?php echo BASE_URL; ?>documents/turnar?id=<?php echo e($doc['id']); ?>" class="btn btn-primary">Turnar / Asignar</a>
             </div>
         </div>
+
+        <!-- Activity Form -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Agregar Seguimiento / Actividad</h6>
+            </div>
+            <div class="card-body">
+                <form action="<?php echo BASE_URL; ?>documents/addActivity" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="document_id" value="<?php echo e($doc['id']); ?>">
+                    <div class="mb-3">
+                        <textarea name="comment" class="form-control" rows="2" placeholder="Describa la actividad realizada..." required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Adjuntar Evidencia (Opcional)</label>
+                        <input type="file" name="evidence_file" class="form-control form-control-sm">
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-success">Registrar Actividad</button>
+                </form>
+            </div>
+        </div>
     </div>
     <div class="col-md-4">
         <div class="card shadow-sm">
@@ -65,7 +85,7 @@
                 <h6 class="mb-0"><i class="bi bi-clock-history"></i> Historial de Movimientos</h6>
             </div>
             <div class="card-body p-0">
-                <ul class="list-group list-group-flush">
+                <ul class="list-group list-group-flush" style="max-height: 600px; overflow-y: auto;">
                     <?php foreach($history as $h): ?>
                         <li class="list-group-item">
                             <div class="d-flex justify-content-between align-items-start">

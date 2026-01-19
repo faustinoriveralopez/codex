@@ -1,0 +1,98 @@
+CREATE TABLE IF NOT EXISTS roles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    slug VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS areas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(10) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role_id INT NOT NULL,
+    area_id INT NOT NULL,
+    position VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (role_id) REFERENCES roles(id),
+    FOREIGN KEY (area_id) REFERENCES areas(id)
+);
+
+CREATE TABLE IF NOT EXISTS documents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    internal_folio VARCHAR(50) UNIQUE,
+    external_folio VARCHAR(50),
+    subject VARCHAR(200) NOT NULL,
+    description TEXT,
+    doc_type VARCHAR(50) DEFAULT 'OFICIO',
+    sender_dependency VARCHAR(100),
+    sender_name VARCHAR(100),
+    priority VARCHAR(20) DEFAULT 'NORMAL',
+    status VARCHAR(20) DEFAULT 'RECIBIDO',
+    current_area_id INT,
+    current_user_id INT,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (current_area_id) REFERENCES areas(id),
+    FOREIGN KEY (current_user_id) REFERENCES users(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS document_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    document_id INT NOT NULL,
+    user_id INT NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (document_id) REFERENCES documents(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS attachments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    document_id INT NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    filepath VARCHAR(255) NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (document_id) REFERENCES documents(id)
+);
+
+-- SEEDS
+INSERT INTO roles (id, name, slug) VALUES
+(1, 'Administrador TI', 'admin'),
+(2, 'Mesa de Control', 'mesa_control'),
+(3, 'Director General', 'director'),
+(4, 'Jefe de Área', 'jefe_area'),
+(5, 'Operador', 'operador');
+
+INSERT INTO areas (id, name, code) VALUES
+(1, 'Dirección General', 'DG'),
+(2, 'Tecnologías de la Información', 'DTI'),
+(3, 'Jurídico', 'JUR'),
+(4, 'Normatividad y Seguimiento', 'NYS'),
+(5, 'Dirección de Prestaciones', 'DP'),
+(6, 'Prestaciones Económicas', 'PE'),
+(7, 'Prestaciones Sociales', 'PS'),
+(8, 'Prestaciones Policiales', 'PP'),
+(9, 'Administración y Finanzas', 'UAF'),
+(10, 'Contabilidad y Finanzas', 'CYF');
+
+-- USERS (Password: 123456 -> e10adc3949ba59abbe56e057f20f883e)
+INSERT INTO users (name, email, password, role_id, area_id, position) VALUES
+('José Elpidio Altamirano López', 'direccion.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 3, 1, 'Director General'),
+('Faustino Benjamín Rivera López', 'tecnologias.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 1, 2, 'Jefe DTI'),
+('Aldo Pimentel López', 'juridico.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 4, 3, 'Jefe Jurídico'),
+('Fredy Martínez García', 'normatividad.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 2, 4, 'Jefe Normatividad'),
+('Por designar', 'direccionprestaciones.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 4, 5, 'Director de Prestaciones'),
+('Eduardo Reyes Merlín', 'peconomicas.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 4, 6, 'Jefa Prestaciones Económicas'),
+('Sujey Dehesa Fuentes', 'psociales.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 4, 7, 'Jefa Prestaciones Sociales'),
+('Diego Fernando Urbieta Villavicencio', 'ppoliciales.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 4, 8, 'Jefe Prestaciones Policiales'),
+('Lucero Vásquez Ramírez', 'administracion.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 4, 9, 'Jefa UAF Fondos de Pensiones'),
+('Karina Mireya Sierra Hernández', 'contabilidadyfinanzas.pensiones@oaxaca.gob.mx', 'e10adc3949ba59abbe56e057f20f883e', 4, 10, 'Jefa Contabilidad y Finanzas');

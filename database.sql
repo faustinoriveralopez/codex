@@ -102,3 +102,17 @@ ALTER TABLE documents ADD COLUMN alert_level VARCHAR(20) DEFAULT 'VERDE';
 
 -- Update existing documents to have a default deadline (e.g. 5 days from creation)
 UPDATE documents SET days_limit = 5, deadline_date = DATE_ADD(created_at, INTERVAL 5 DAY) WHERE deadline_date IS NULL;
+CREATE TABLE IF NOT EXISTS closing_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+
+INSERT INTO closing_types (name) VALUES
+('Trámite Concluido'),
+('Informativo / Conocimiento'),
+('Improcedente / No Aplica'),
+('Turnado a otra Instancia Externa'),
+('Atendido Parcialmente');
+
+ALTER TABLE documents ADD COLUMN closing_type_id INT DEFAULT NULL;
+ALTER TABLE documents ADD KEY (closing_type_id);

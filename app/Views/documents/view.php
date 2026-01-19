@@ -55,7 +55,10 @@
             </div>
             <div class="card-footer bg-white text-end">
                 <a href="<?php echo BASE_URL; ?>documents/reception" class="btn btn-outline-secondary">Volver</a>
-                <a href="<?php echo BASE_URL; ?>documents/turnar?id=<?php echo e($doc['id']); ?>" class="btn btn-primary">Turnar / Asignar</a>
+                <?php if($doc['status'] != 'CERRADO'): ?>
+                    <a href="<?php echo BASE_URL; ?>documents/turnar?id=<?php echo e($doc['id']); ?>" class="btn btn-primary">Turnar / Asignar</a>
+                    <a href="<?php echo BASE_URL; ?>documents/close?id=<?php echo e($doc['id']); ?>" class="btn btn-outline-success ms-2"><i class="bi bi-check-circle"></i> Cerrar Oficio</a>
+                <?php endif; ?>
             </div>
         </div>
 

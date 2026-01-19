@@ -28,8 +28,17 @@
     </a>
 
     <?php if($role == 'director'): ?>
-        <a href="<?php echo BASE_URL; ?>documents/all">
+        <a href="<?php echo BASE_URL; ?>documents/reception">
             <i class="bi bi-eye"></i> Monitor Global
+        </a>
+    <?php endif; ?>
+
+    <?php if($role == 'admin' || $role == 'director' || $role == 'auditor'): ?>
+        <a href="<?php echo BASE_URL; ?>reports/audit">
+            <i class="bi bi-shield-check"></i> Auditoría
+        </a>
+        <a href="<?php echo BASE_URL; ?>admin/dashboard">
+            <i class="bi bi-gear"></i> Administración
         </a>
     <?php endif; ?>
 

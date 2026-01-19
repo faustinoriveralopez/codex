@@ -5,6 +5,7 @@ use Core\Controller;
 use App\Models\Document;
 use App\Models\Area;
 use App\Models\DocumentHistory;
+use App\Models\ClosingType;
 use App\Helpers\DateHelper;
 
 class DocumentController extends Controller {
@@ -252,5 +253,77 @@ class DocumentController extends Controller {
         ]);
 
         $this->redirect('documents/view?id=' . $doc_id);
+    }
+
+    public function close() {
+        $id = $_GET['id'] ?? null;
+        if (!$id) $this->redirect('documents/reception');
+
+        $docModel = new Document();
+        $doc = $docModel->find($id);
+
+        $closingModel = new ClosingType();
+        $closingTypes = $closingModel->all();
+
+        $this->view('documents/close', ['title' => 'Cerrar Oficio', 'doc' => $doc, 'closingTypes' => $closingTypes]);
+    }
+
+    public function processClose() {
+        $doc_id = $_POST['document_id'];
+        $closing_type_id = $_POST['closing_type_id'];
+        $comment = $_POST['comment'] ?? '';
+
+        // Validation: File is mandatory
+        if (!isset($_FILES['closing_file']) || $_FILES['closing_file']['error'] !== UPLOAD_ERR_OK) {
+             // For simplicity, redirect back (should show error)
+             $this->redirect('documents/close?id=' . $doc_id . '&error=missing_file');
+             return;
+        }
+
+        $file = $_FILES['closing_file'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'zip', 'doc', 'docx'];
+
+        if (!in_array($ext, $allowedExts)) {
+             $this->redirect('documents/close?id=' . $doc_id . '&error=invalid_file');
+             return;
+        }
+
+        $uploadDir = 'public/uploads/';
+        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+
+        $filename = 'CIERRE_' . time() . '_' . pathinfo($file['name'], PATHINFO_FILENAME) . '.' . $ext;
+        $filepath = $uploadDir . $filename;
+
+        if (move_uploaded_file($file['tmp_name'], $filepath)) {
+            $docModel = new Document();
+
+            // 1. Save Attachment
+            $docModel->query("INSERT INTO attachments (document_id, filename, filepath) VALUES (:doc_id, :fname, :fpath)", [
+                'doc_id' => $doc_id,
+                'fname' => '[ACUSE DE CIERRE] ' . $file['name'],
+                'fpath' => $filepath
+            ]);
+
+            // 2. Update Document Status
+            $docModel->update($doc_id, [
+                'status' => 'CERRADO',
+                'closing_type_id' => $closing_type_id,
+                'alert_level' => 'VERDE' // Clear alerts
+            ]);
+
+            // 3. Add History
+            $histModel = new DocumentHistory();
+            $histModel->create([
+                'document_id' => $doc_id,
+                'user_id' => $_SESSION['user_id'],
+                'action' => 'CIERRE',
+                'comment' => "Oficio CERRADO. " . $comment
+            ]);
+
+            $this->redirect('documents/view?id=' . $doc_id);
+        } else {
+             $this->redirect('documents/close?id=' . $doc_id . '&error=upload_failed');
+        }
     }
 }

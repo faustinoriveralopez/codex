@@ -31,3 +31,8 @@ $router->get('/admin/areas', 'AdminController', 'areas');
 $router->post('/admin/areas/store', 'AdminController', 'storeArea');
 $router->get('/admin/closing_types', 'AdminController', 'closingTypes');
 $router->post('/admin/closing_types/store', 'AdminController', 'storeClosingType');
+
+// Outgoing Documents
+$router->get('/outgoing/index', 'OutgoingController', 'index');
+$router->get('/outgoing/create', 'OutgoingController', 'create');
+$router->post('/outgoing/store', 'OutgoingController', 'store');

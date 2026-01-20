@@ -116,3 +116,26 @@ INSERT INTO closing_types (name) VALUES
 
 ALTER TABLE documents ADD COLUMN closing_type_id INT DEFAULT NULL;
 ALTER TABLE documents ADD KEY (closing_type_id);
+CREATE TABLE IF NOT EXISTS outgoing_documents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    folio VARCHAR(50) UNIQUE,
+    recipient_name VARCHAR(100) NOT NULL,
+    recipient_dependency VARCHAR(100),
+    subject VARCHAR(200) NOT NULL,
+    description TEXT,
+    related_incoming_id INT DEFAULT NULL,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    filepath VARCHAR(255),
+    FOREIGN KEY (related_incoming_id) REFERENCES documents(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    key_name VARCHAR(50) UNIQUE,
+    value VARCHAR(255)
+);
+
+-- Seed initial sequence for 2025
+INSERT INTO settings (key_name, value) VALUES ('outgoing_sequence_2025', 1);

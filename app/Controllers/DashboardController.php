@@ -50,6 +50,43 @@ class DashboardController extends Controller {
         $sqlCritical = "SELECT * FROM documents WHERE $whereClause AND (alert_level = 'ROJO' OR alert_level = 'AMARILLO') ORDER BY deadline_date ASC LIMIT 5";
         $criticalDocs = $docModel->query($sqlCritical, $params)->fetchAll();
 
+        // --- KPI Data for Charts ---
+        // 1. Monthly Stats (Received vs Closed) for current year
+        $chartMonthly = [
+            'labels' => ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+            'received' => array_fill(0, 12, 0),
+            'closed' => array_fill(0, 12, 0)
+        ];
+
+        $sqlMonthly = "SELECT MONTH(created_at) as m, COUNT(*) as c FROM documents WHERE YEAR(created_at) = YEAR(CURDATE()) GROUP BY m";
+        $resRec = $docModel->query($sqlMonthly)->fetchAll();
+        foreach($resRec as $r) $chartMonthly['received'][$r['m']-1] = $r['c'];
+
+        $sqlMonthlyClosed = "SELECT MONTH(updated_at) as m, COUNT(*) as c FROM documents WHERE status = 'CERRADO' AND YEAR(updated_at) = YEAR(CURDATE()) GROUP BY m";
+        $resClosed = $docModel->query($sqlMonthlyClosed)->fetchAll();
+        foreach($resClosed as $r) $chartMonthly['closed'][$r['m']-1] = $r['c'];
+
+        // 2. Compliance (On Time vs Late)
+        // Late = Closed documents where updated_at > deadline_date OR Active documents with Red status
+        // For simplicity: Just check current active semaphores + closed history if we had it.
+        // Let's stick to current snapshot: Green/Yellow (On Time) vs Red (Late)
+        $chartCompliance = [
+            'on_time' => $totalPending + $totalYellow, // Approximation
+            'late' => $totalRed
+        ];
+
+        // 3. Workload by Area (Active Docs)
+        $sqlArea = "SELECT a.code, COUNT(d.id) as total FROM documents d JOIN areas a ON d.current_area_id = a.id WHERE d.status != 'CERRADO' GROUP BY a.code";
+        $resArea = $docModel->query($sqlArea)->fetchAll();
+        $chartArea = [
+            'labels' => [],
+            'data' => []
+        ];
+        foreach($resArea as $r) {
+            $chartArea['labels'][] = $r['code'];
+            $chartArea['data'][] = $r['total'];
+        }
+
         $data = [
             'user' => $_SESSION,
             'title' => 'Tablero Principal',
@@ -58,7 +95,12 @@ class DashboardController extends Controller {
                 'red' => $totalRed,
                 'yellow' => $totalYellow
             ],
-            'criticalDocs' => $criticalDocs
+            'criticalDocs' => $criticalDocs,
+            'charts' => [
+                'monthly' => $chartMonthly,
+                'compliance' => $chartCompliance,
+                'area' => $chartArea
+            ]
         ];
         $this->view('dashboard/index', $data);
     }

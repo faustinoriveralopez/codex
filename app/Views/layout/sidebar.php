@@ -27,6 +27,10 @@
         <i class="bi bi-folder2-open"></i> Bandeja de Entrada
     </a>
 
+    <a href="<?php echo BASE_URL; ?>outgoing/index">
+        <i class="bi bi-send"></i> Oficios de Salida
+    </a>
+
     <?php if($role == 'director'): ?>
         <a href="<?php echo BASE_URL; ?>documents/reception">
             <i class="bi bi-eye"></i> Monitor Global

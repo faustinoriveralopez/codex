@@ -73,4 +73,90 @@
 </div>
 <?php endif; ?>
 
+<!-- Charts Section -->
+<?php if(isset($charts)): ?>
+<div class="row mt-4">
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-bar-chart-fill"></i> Recibidos vs Atendidos (Año Actual)</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="chartMonthly"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-pie-chart-fill"></i> Cumplimiento</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="chartCompliance"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-graph-up"></i> Carga por Área</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="chartArea"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Monthly Chart
+    new Chart(document.getElementById('chartMonthly'), {
+        type: 'bar',
+        data: {
+            labels: <?php echo json_encode($charts['monthly']['labels']); ?>,
+            datasets: [{
+                label: 'Recibidos',
+                data: <?php echo json_encode($charts['monthly']['received']); ?>,
+                backgroundColor: 'rgba(54, 162, 235, 0.6)'
+            }, {
+                label: 'Cerrados',
+                data: <?php echo json_encode($charts['monthly']['closed']); ?>,
+                backgroundColor: 'rgba(75, 192, 192, 0.6)'
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // 2. Compliance Chart
+    new Chart(document.getElementById('chartCompliance'), {
+        type: 'doughnut',
+        data: {
+            labels: ['En Tiempo', 'Vencidos'],
+            datasets: [{
+                data: [<?php echo $charts['compliance']['on_time']; ?>, <?php echo $charts['compliance']['late']; ?>],
+                backgroundColor: ['#198754', '#dc3545']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // 3. Area Chart
+    new Chart(document.getElementById('chartArea'), {
+        type: 'polarArea',
+        data: {
+            labels: <?php echo json_encode($charts['area']['labels']); ?>,
+            datasets: [{
+                data: <?php echo json_encode($charts['area']['data']); ?>,
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'
+                ]
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+});
+</script>
+<?php endif; ?>
+
 <?php include 'app/Views/layout/footer.php'; ?>

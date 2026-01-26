@@ -1,0 +1,329 @@
+<?php
+namespace App\Controllers;
+
+use Core\Controller;
+use App\Models\Document;
+use App\Models\Area;
+use App\Models\DocumentHistory;
+use App\Models\ClosingType;
+use App\Helpers\DateHelper;
+
+class DocumentController extends Controller {
+    public function __construct() {
+        $this->requireAuth();
+    }
+
+    public function create() {
+        $data = ['title' => 'Registrar Nuevo Oficio'];
+        $this->view('documents/create', $data);
+    }
+
+    public function store() {
+        $subject = $_POST['subject'] ?? '';
+        $sender = $_POST['sender_dependency'] ?? '';
+
+        if (empty($subject) || empty($sender)) {
+             $this->view('documents/create', ['error' => 'El Asunto y la Dependencia Remitente son obligatorios.', 'title' => 'Registrar Nuevo Oficio']);
+             return;
+        }
+
+        $docModel = new Document();
+        $folio = $docModel->getNextInternalFolio(date('Y'));
+
+        // Calculate Deadline
+        $priority = $_POST['priority'] ?? 'NORMAL';
+        $daysLimit = 5; // Default Normal
+
+        if ($priority === 'ALTA') $daysLimit = 3;
+        if ($priority === 'URGENTE') $daysLimit = 1;
+
+        // Allow manual override if set
+        if (!empty($_POST['days_limit'])) {
+            $daysLimit = (int)$_POST['days_limit'];
+        }
+
+        $deadlineDate = DateHelper::addBusinessDays(date('Y-m-d'), $daysLimit);
+
+        $data = [
+            'internal_folio' => $folio,
+            'external_folio' => $_POST['external_folio'] ?? '',
+            'subject' => $subject,
+            'description' => $_POST['description'] ?? '',
+            'doc_type' => $_POST['doc_type'] ?? 'OFICIO',
+            'sender_dependency' => $sender,
+            'sender_name' => $_POST['sender_name'] ?? '',
+            'priority' => $priority,
+            'status' => 'RECIBIDO',
+            'created_by' => $_SESSION['user_id'],
+            'current_area_id' => $_SESSION['area_id'],
+            'current_user_id' => $_SESSION['user_id'],
+            'days_limit' => $daysLimit,
+            'deadline_date' => $deadlineDate,
+            'alert_level' => 'VERDE'
+        ];
+
+        $id = $docModel->create($data);
+
+        if ($id) {
+            // Handle File Upload
+            if (isset($_FILES['pdf_file']) && $_FILES['pdf_file']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = 'public/uploads/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+
+                $file = $_FILES['pdf_file'];
+                $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+
+                // Basic validation
+                if (strtolower($ext) === 'pdf') {
+                    $filename = $folio . '_' . time() . '.pdf';
+                    $filepath = $uploadDir . $filename;
+
+                    if (move_uploaded_file($file['tmp_name'], $filepath)) {
+                        // Save to attachments table
+                        $sql = "INSERT INTO attachments (document_id, filename, filepath) VALUES (:doc_id, :fname, :fpath)";
+                        // We use the model's query method which uses the db connection
+                        $docModel->query($sql, [
+                            'doc_id' => $id,
+                            'fname' => $file['name'],
+                            'fpath' => $filepath
+                        ]);
+                    }
+                }
+            }
+
+            // Log creation
+            $histModel = new DocumentHistory();
+            $histModel->create([
+                'document_id' => $id,
+                'user_id' => $_SESSION['user_id'],
+                'action' => 'REGISTRO',
+                'comment' => 'Documento registrado en sistema.'
+            ]);
+
+            $this->redirect('documents/reception');
+        } else {
+             $this->view('documents/create', ['error' => 'Error al guardar en base de datos.', 'title' => 'Registrar Nuevo Oficio']);
+        }
+    }
+
+    public function reception() {
+        $docModel = new Document();
+        $sql = "SELECT d.*, u.name as created_by_name, a.name as current_area_name
+                FROM documents d
+                LEFT JOIN users u ON d.created_by = u.id
+                LEFT JOIN areas a ON d.current_area_id = a.id
+                ORDER BY d.created_at DESC";
+        $documents = $docModel->query($sql)->fetchAll();
+
+        $this->view('documents/reception', ['title' => 'Mesa de Control', 'documents' => $documents]);
+    }
+
+    public function my_tray() {
+        $area_id = $_SESSION['area_id'];
+        $user_id = $_SESSION['user_id'];
+
+        $docModel = new Document();
+        // Documents assigned to my area or directly to me
+        // Simple filter
+        $sql = "SELECT d.*, u.name as created_by_name
+                FROM documents d
+                LEFT JOIN users u ON d.created_by = u.id
+                WHERE d.current_user_id = :uid
+                   OR (d.current_area_id = :aid)
+                ORDER BY d.created_at DESC";
+
+        $documents = $docModel->query($sql, ['uid' => $user_id, 'aid' => $area_id])->fetchAll();
+
+        $this->view('documents/index', ['title' => 'Mi Bandeja', 'documents' => $documents]);
+    }
+
+    public function turnar() {
+        $id = $_GET['id'] ?? null;
+        if (!$id) {
+            $this->redirect('documents/reception');
+        }
+
+        $docModel = new Document();
+        $doc = $docModel->find($id);
+
+        $areaModel = new Area();
+        $areas = $areaModel->all();
+
+        $this->view('documents/turnar', ['title' => 'Turnar Oficio', 'doc' => $doc, 'areas' => $areas]);
+    }
+
+    public function processTurnar() {
+        $doc_id = $_POST['document_id'];
+        $area_id = $_POST['area_id'];
+        $comment = $_POST['comment'] ?? '';
+
+        $docModel = new Document();
+        $docModel->update($doc_id, [
+            'current_area_id' => $area_id,
+            'status' => 'TURNADO',
+            'current_user_id' => null // Unassign specific user, assign to area
+        ]);
+
+        // History
+        $histModel = new DocumentHistory();
+        $histModel->create([
+            'document_id' => $doc_id,
+            'user_id' => $_SESSION['user_id'],
+            'action' => 'TURNADO',
+            'comment' => $comment
+        ]);
+
+        $this->redirect('documents/reception');
+    }
+
+    public function show() {
+        $id = $_GET['id'] ?? null;
+        if (!$id) {
+            $this->redirect('documents/reception');
+        }
+
+        $docModel = new Document();
+        $doc = $docModel->getWithDetails($id);
+
+        if (!$doc) {
+             die("Documento no encontrado");
+        }
+
+        // Get attachments
+        $attSql = "SELECT * FROM attachments WHERE document_id = :id";
+        $attachments = $docModel->query($attSql, ['id' => $id])->fetchAll();
+
+        // Get history
+        $histSql = "SELECT h.*, u.name as user_name FROM document_history h LEFT JOIN users u ON h.user_id = u.id WHERE document_id = :id ORDER BY created_at DESC";
+        $history = $docModel->query($histSql, ['id' => $id])->fetchAll();
+
+        $this->view('documents/view', [
+            'title' => 'Detalle del Oficio',
+            'doc' => $doc,
+            'attachments' => $attachments,
+            'history' => $history
+        ]);
+    }
+
+    public function addActivity() {
+        $doc_id = $_POST['document_id'];
+        $comment = $_POST['comment'] ?? '';
+
+        if (empty($comment)) {
+            $this->redirect('documents/view?id=' . $doc_id);
+        }
+
+        // Handle Evidence Upload
+        $evidencePath = null;
+        if (isset($_FILES['evidence_file']) && $_FILES['evidence_file']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = 'public/uploads/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+
+            $file = $_FILES['evidence_file'];
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'zip', 'doc', 'docx', 'xls', 'xlsx'];
+
+            if (in_array($ext, $allowedExts)) {
+                $filename = 'EVID_' . time() . '_' . pathinfo($file['name'], PATHINFO_FILENAME) . '.' . $ext;
+                $filepath = $uploadDir . $filename;
+
+                if (move_uploaded_file($file['tmp_name'], $filepath)) {
+                    $evidencePath = $filepath;
+                    $docModel = new Document();
+                    $docModel->query("INSERT INTO attachments (document_id, filename, filepath) VALUES (:doc_id, :fname, :fpath)", [
+                        'doc_id' => $doc_id,
+                        'fname' => '[EVIDENCIA] ' . $file['name'],
+                        'fpath' => $filepath
+                    ]);
+                }
+            }
+        }
+
+        // Add History
+        $histModel = new DocumentHistory();
+        $histModel->create([
+            'document_id' => $doc_id,
+            'user_id' => $_SESSION['user_id'],
+            'action' => 'SEGUIMIENTO',
+            'comment' => $comment . ($evidencePath ? ' (Evidencia adjunta)' : '')
+        ]);
+
+        $this->redirect('documents/view?id=' . $doc_id);
+    }
+
+    public function close() {
+        $id = $_GET['id'] ?? null;
+        if (!$id) $this->redirect('documents/reception');
+
+        $docModel = new Document();
+        $doc = $docModel->find($id);
+
+        $closingModel = new ClosingType();
+        $closingTypes = $closingModel->all();
+
+        $this->view('documents/close', ['title' => 'Cerrar Oficio', 'doc' => $doc, 'closingTypes' => $closingTypes]);
+    }
+
+    public function processClose() {
+        $doc_id = $_POST['document_id'];
+        $closing_type_id = $_POST['closing_type_id'];
+        $comment = $_POST['comment'] ?? '';
+
+        // Validation: File is mandatory
+        if (!isset($_FILES['closing_file']) || $_FILES['closing_file']['error'] !== UPLOAD_ERR_OK) {
+             // For simplicity, redirect back (should show error)
+             $this->redirect('documents/close?id=' . $doc_id . '&error=missing_file');
+             return;
+        }
+
+        $file = $_FILES['closing_file'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'zip', 'doc', 'docx'];
+
+        if (!in_array($ext, $allowedExts)) {
+             $this->redirect('documents/close?id=' . $doc_id . '&error=invalid_file');
+             return;
+        }
+
+        $uploadDir = 'public/uploads/';
+        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+
+        $filename = 'CIERRE_' . time() . '_' . pathinfo($file['name'], PATHINFO_FILENAME) . '.' . $ext;
+        $filepath = $uploadDir . $filename;
+
+        if (move_uploaded_file($file['tmp_name'], $filepath)) {
+            $docModel = new Document();
+
+            // 1. Save Attachment
+            $docModel->query("INSERT INTO attachments (document_id, filename, filepath) VALUES (:doc_id, :fname, :fpath)", [
+                'doc_id' => $doc_id,
+                'fname' => '[ACUSE DE CIERRE] ' . $file['name'],
+                'fpath' => $filepath
+            ]);
+
+            // 2. Update Document Status
+            $docModel->update($doc_id, [
+                'status' => 'CERRADO',
+                'closing_type_id' => $closing_type_id,
+                'alert_level' => 'VERDE' // Clear alerts
+            ]);
+
+            // 3. Add History
+            $histModel = new DocumentHistory();
+            $histModel->create([
+                'document_id' => $doc_id,
+                'user_id' => $_SESSION['user_id'],
+                'action' => 'CIERRE',
+                'comment' => "Oficio CERRADO. " . $comment
+            ]);
+
+            $this->redirect('documents/view?id=' . $doc_id);
+        } else {
+             $this->redirect('documents/close?id=' . $doc_id . '&error=upload_failed');
+        }
+    }
+}
